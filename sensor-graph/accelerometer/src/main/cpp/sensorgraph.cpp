@@ -88,6 +88,8 @@ class sensorgraph {
   sensorgraph() : sensorDataIndex(0) {}
 
   void init(AAssetManager *assetManager) {
+
+    // 读取 assets 目录下的文件们
     AAsset *vertexShaderAsset =
         AAssetManager_open(assetManager, "shader.glslv", AASSET_MODE_BUFFER);
     assert(vertexShaderAsset != NULL);
@@ -108,19 +110,24 @@ class sensorgraph {
                                        (size_t)fragmentShaderLength);
     AAsset_close(fragmentShaderAsset);
 
+    // 申请传感器资源
     sensorManager = AcquireASensorManagerInstance();
     assert(sensorManager != NULL);
     accelerometer = ASensorManager_getDefaultSensor(sensorManager,
                                                     ASENSOR_TYPE_ACCELEROMETER);
     assert(accelerometer != NULL);
+
     looper = ALooper_prepare(ALOOPER_PREPARE_ALLOW_NON_CALLBACKS);
     assert(looper != NULL);
+
+    // 实例化 传感器事件存储 队列对象
     accelerometerEventQueue = ASensorManager_createEventQueue(
         sensorManager, looper, LOOPER_ID_USER, NULL, NULL);
     assert(accelerometerEventQueue != NULL);
     auto status =
         ASensorEventQueue_enableSensor(accelerometerEventQueue, accelerometer);
     assert(status >= 0);
+    // 设置数据更新速率
     status = ASensorEventQueue_setEventRate(
         accelerometerEventQueue, accelerometer, SENSOR_REFRESH_PERIOD_US);
     assert(status >= 0);
@@ -194,6 +201,8 @@ class sensorgraph {
     ALooper_pollAll(0, NULL, NULL, NULL);
     ASensorEvent event;
     float a = SENSOR_FILTER_ALPHA;
+
+    // 从 传感器事件存储队列 中读取事件，实现读取传感器
     while (ASensorEventQueue_getEvents(accelerometerEventQueue, &event, 1) >
            0) {
       sensorDataFilter.x =
@@ -250,13 +259,22 @@ class sensorgraph {
   }
 };
 
+// 实例化对象
 sensorgraph gSensorGraph;
 
+
+/*
+ * 以下导出 C++ 接口至 Java 调用（就是 JNI层）
+ * 对应于路径"sensor-graph/accelerometer/src/main/java/com/android/accelerometergraph/"下的
+ * 文件 AccelerometerGraphJNI.java
+ */
 extern "C" {
 JNIEXPORT void JNICALL
 Java_com_android_accelerometergraph_AccelerometerGraphJNI_init(
     JNIEnv *env, jclass type, jobject assetManager) {
   (void)type;
+
+  // 初始化
   AAssetManager *nativeAssetManager = AAssetManager_fromJava(env, assetManager);
   gSensorGraph.init(nativeAssetManager);
 }
@@ -266,6 +284,8 @@ Java_com_android_accelerometergraph_AccelerometerGraphJNI_surfaceCreated(
     JNIEnv *env, jclass type) {
   (void)env;
   (void)type;
+
+  // 创建界面
   gSensorGraph.surfaceCreated();
 }
 
@@ -274,6 +294,8 @@ Java_com_android_accelerometergraph_AccelerometerGraphJNI_surfaceChanged(
     JNIEnv *env, jclass type, jint width, jint height) {
   (void)env;
   (void)type;
+
+  // 更改界面尺寸
   gSensorGraph.surfaceChanged(width, height);
 }
 
@@ -282,6 +304,8 @@ Java_com_android_accelerometergraph_AccelerometerGraphJNI_drawFrame(
     JNIEnv *env, jclass type) {
   (void)env;
   (void)type;
+
+  // 更新界面
   gSensorGraph.update();
   gSensorGraph.render();
 }
@@ -291,6 +315,8 @@ Java_com_android_accelerometergraph_AccelerometerGraphJNI_pause(JNIEnv *env,
                                                                 jclass type) {
   (void)env;
   (void)type;
+
+  // 暂停
   gSensorGraph.pause();
 }
 
@@ -299,6 +325,8 @@ Java_com_android_accelerometergraph_AccelerometerGraphJNI_resume(JNIEnv *env,
                                                                  jclass type) {
   (void)env;
   (void)type;
+
+  // 恢复
   gSensorGraph.resume();
 }
 }
